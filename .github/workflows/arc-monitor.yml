@@ -7,7 +7,6 @@ on:
       - "main.go"
       - ".github/workflows/arc-monitor.yml"
   schedule:
-    # Avoid minute 0/high-load boundary; five schedules/hour still gives ~5m cadence.
     - cron: "2,7,12,17,22,27,32,37,42,47,52,57 * * * *"
   workflow_dispatch:
     inputs:
@@ -34,6 +33,7 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: "1.23.x"
+          cache: false
       - name: Restore scan state
         if: ${{ inputs.test_alert != true }}
         uses: actions/cache/restore@v4
@@ -45,11 +45,12 @@ jobs:
       - name: Run monitor
         env:
           ARC_RPC_URL: ${{ secrets.ARC_RPC_URL }}
+          ARC_RPC_URLS: ${{ secrets.ARC_RPC_URLS }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           STATE_FILE: ".state/cursor"
-          INITIAL_LOOKBACK_BLOCKS: "700"
-          MAX_BLOCKS_PER_RUN: "900"
+          INITIAL_LOOKBACK_BLOCKS: "240"
+          MAX_BLOCKS_PER_RUN: "600"
           MAX_ALERTS: "20"
           TEST_ALERT: ${{ inputs.test_alert == true && '1' || '0' }}
         run: go run .
