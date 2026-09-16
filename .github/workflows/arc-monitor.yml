@@ -1,8 +1,14 @@
 name: Arc Mainnet Monitor
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - "main.go"
+      - ".github/workflows/arc-monitor.yml"
   schedule:
-    - cron: "*/5 * * * *"
+    # Avoid minute 0/high-load boundary; five schedules/hour still gives ~5m cadence.
+    - cron: "2,7,12,17,22,27,32,37,42,47,52,57 * * * *"
   workflow_dispatch:
     inputs:
       test_alert:
@@ -13,26 +19,43 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: arc-mainnet-monitor
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   monitor:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 8
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
           go-version: "1.23.x"
+      - name: Restore scan state
+        if: ${{ inputs.test_alert != true }}
+        uses: actions/cache/restore@v4
+        with:
+          path: .state
+          key: arc-monitor-state-${{ github.run_id }}
+          restore-keys: |
+            arc-monitor-state-
       - name: Run monitor
         env:
           ARC_RPC_URL: ${{ secrets.ARC_RPC_URL }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          LOOKBACK_BLOCKS: "80"
-          MAX_ALERTS: "12"
+          STATE_FILE: ".state/cursor"
+          INITIAL_LOOKBACK_BLOCKS: "700"
+          MAX_BLOCKS_PER_RUN: "900"
+          MAX_ALERTS: "20"
           TEST_ALERT: ${{ inputs.test_alert == true && '1' || '0' }}
         run: go run .
+      - name: Save scan state
+        if: ${{ success() && inputs.test_alert != true }}
+        uses: actions/cache/save@v4
+        with:
+          path: .state
+          key: arc-monitor-state-${{ github.run_id }}
