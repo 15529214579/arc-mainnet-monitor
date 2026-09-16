@@ -51,6 +51,7 @@ jobs:
           STATE_FILE: ".state/cursor"
           INITIAL_LOOKBACK_BLOCKS: "240"
           MAX_BLOCKS_PER_RUN: "600"
+          BLOCK_BATCH_SIZE: "40"
           MAX_ALERTS: "20"
           TEST_ALERT: ${{ inputs.test_alert == true && '1' || '0' }}
         run: go run .
